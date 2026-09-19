@@ -50,3 +50,12 @@ loaded reminder tasks, deduplicated by list ID. Opening the panel refreshes the
 list snapshot as well as tasks. The category scroll view has a fixed 28-point
 height. Three new regression checks cover a stale/empty list snapshot,
 deduplication while retaining empty selected lists, and a fully empty result.
+
+### Startup authorization and expanded capacity
+
+Check reminder authorization at startup, not only when opening Settings. Live
+accessibility inspection confirmed 30 loaded reminders across three selected
+lists after this change. Selecting a category now expands its content; the
+collapse button has an explicit text label. Expanded reminder content is 300
+points tall instead of 120, with a 370-point outer panel. Collapsing returns the
+outer panel to 190 points. The host window accommodates either size.

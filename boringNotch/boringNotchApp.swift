@@ -26,6 +26,9 @@ struct DynamicNotchApp: App {
 
         // Initialize the settings window controller with the updater controller
         SettingsWindowController.shared.setUpdaterController(updaterController)
+        Task { @MainActor in
+            await CalendarManager.shared.checkReminderAuthorization()
+        }
     }
 
     var body: some Scene {

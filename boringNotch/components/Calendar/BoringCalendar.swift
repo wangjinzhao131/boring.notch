@@ -219,9 +219,10 @@ struct CalendarView: View {
             Button {
                 withAnimation(.easeInOut(duration: 0.2)) { remindersExpanded.toggle() }
             } label: {
-                Image(systemName: remindersExpanded ? "chevron.up" : "chevron.down")
+                Label(remindersExpanded ? "折叠" : "展开", systemImage: remindersExpanded ? "chevron.up" : "chevron.down")
                     .font(.system(size: 11, weight: .semibold))
-                    .frame(width: 24, height: 26)
+                    .fixedSize()
+                    .frame(height: 26)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -236,7 +237,10 @@ struct CalendarView: View {
         let count = EventListView.filteredEvents(events: calendarManager.events).filter {
             id.isEmpty || $0.calendar.id == id
         }.count
-        return Button { selectedReminderList = id } label: {
+        return Button {
+            selectedReminderList = id
+            withAnimation(.easeInOut(duration: 0.2)) { remindersExpanded = true }
+        } label: {
             HStack(spacing: 4) {
                 Text(title).fontWeight(selected ? .semibold : .regular)
                 Text("\(count)").foregroundStyle(.secondary)
@@ -305,7 +309,10 @@ struct CalendarView: View {
             }
         }
         .listRowBackground(Color.clear)
-        .frame(height: allReminders && !remindersExpanded ? 30 : 120, alignment: .top)
+        .frame(height: allReminders ? (remindersExpanded ? 300 : 30) : 120, alignment: .top)
+        .onChange(of: remindersExpanded) {
+            if vm.notchState == .open { vm.notchSize = openNotchSize }
+        }
         .onChange(of: availableLists) {
             if !availableLists.contains(where: { $0.id == selectedReminderList }) {
                 selectedReminderList = ""
