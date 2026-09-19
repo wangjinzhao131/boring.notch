@@ -68,3 +68,24 @@ single-line titles and a full-title/list tooltip. Redundant list subtitles and
 undated labels are omitted; due dates remain visible. Category switching still
 expands content, and the explicit collapse control remains. macOS build and
 signature verification passed; exact on-screen capacity has not been verified.
+
+## Ongoing upstream maintenance
+
+`feat/all-reminders` is the default branch and retains the custom features.
+`main` mirrors official main using fast-forward pushes only. The **Sync official
+upstream** workflow checks daily at 09:23 Asia/Shanghai (GitHub may delay scheduled
+runs) and supports Run workflow manually. It updates `sync/upstream` and opens or
+reuses a PR into the custom branch. Never reset the custom branch to upstream.
+
+The same sync run calls **Custom reminders build**, validates the actual merge,
+runs reminder filtering/category tests, and builds/signs/packages the app. This
+avoids relying on a bot-created PR to trigger another workflow. Conflicts fail
+validation and require manual resolution. Review the sync run linked in the PR
+and visually check categories, completion, collapse and compact layout before
+merging. Nothing is auto-merged or installed. After merging, the custom branch
+build produces the final ZIP in Actions artifacts (retained 30 days).
+
+Packages use ad-hoc signing, not Apple notarization. Keep using this fork's builds;
+installing an official in-app update can replace the custom features. GitHub can
+disable scheduled workflows in inactive public repositories after 60 days;
+re-enable in Actions or run manually if that happens.

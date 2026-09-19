@@ -1,0 +1,35 @@
+name: Sync official upstream
+on:
+  schedule:
+    - cron: '23 1 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: fork-upstream-sync
+  cancel-in-progress: false
+jobs:
+  sync:
+    if: github.repository == 'wangjinzhao131/boring.notch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      changed: ${{ steps.sync.outputs.changed }}
+      upstream_sha: ${{ steps.sync.outputs.upstream_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/all-reminders
+          fetch-depth: 0
+      - id: sync
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/sync-upstream.sh
+  validate:
+    needs: sync
+    if: needs.sync.outputs.changed == 'true'
+    uses: ./.github/workflows/fork-build.yml
+    with:
+      upstream_sha: ${{ needs.sync.outputs.upstream_sha }}

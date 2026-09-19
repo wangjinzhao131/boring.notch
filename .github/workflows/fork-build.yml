@@ -1,0 +1,48 @@
+name: Custom reminders build
+on:
+  push:
+    branches: [feat/all-reminders]
+  pull_request:
+    branches: [feat/all-reminders]
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      upstream_sha:
+        type: string
+        required: true
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Merge upstream for scheduled validation
+        if: inputs.upstream_sha != ''
+        env:
+          UPSTREAM_SHA: ${{ inputs.upstream_sha }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git merge --no-edit "$UPSTREAM_SHA"
+      - name: Test reminder filtering and categories
+        run: bash tests/reminders/run.sh
+      - name: Build macOS app
+        run: xcodebuild -project boringNotch.xcodeproj -scheme boringNotch -configuration Release -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+      - name: Sign and package
+        run: |
+          sed 's/$(PRODUCT_BUNDLE_IDENTIFIER)/theboringteam.boringnotch/g' boringNotch/boringNotch.entitlements > build/local.entitlements
+          codesign --force --deep --sign - --entitlements build/local.entitlements build/Build/Products/Release/boringNotch.app
+          codesign --verify --deep --strict build/Build/Products/Release/boringNotch.app
+          git rev-parse HEAD > build/SOURCE-COMMIT.txt
+          ditto -c -k --sequesterRsrc --keepParent build/Build/Products/Release/boringNotch.app build/boringNotch-reminders.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: boringNotch-reminders-${{ github.run_id }}
+          path: |
+            build/boringNotch-reminders.zip
+            build/SOURCE-COMMIT.txt
+          retention-days: 30
