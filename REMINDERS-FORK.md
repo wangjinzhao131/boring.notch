@@ -42,3 +42,11 @@ Validation: macOS Debug build, ad-hoc signature verification, and the eight
 existing reminder date-filter regression checks pass. The updated app has been
 installed locally. Floating-window capture currently exposes only the closed
 notch, so live category switching and collapse interactions remain unverified.
+
+### Category refresh fix
+
+Categories now combine selected reminder lists with the lists represented by
+loaded reminder tasks, deduplicated by list ID. Opening the panel refreshes the
+list snapshot as well as tasks. The category scroll view has a fixed 28-point
+height. Three new regression checks cover a stale/empty list snapshot,
+deduplication while retaining empty selected lists, and a fully empty result.

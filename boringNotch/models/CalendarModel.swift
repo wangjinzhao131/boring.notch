@@ -16,3 +16,12 @@ struct CalendarModel: Equatable {
     let isSubscribed: Bool
     let isReminder: Bool // true if this is a reminder calendar
 }
+
+// Preserve empty selected lists, and include categories already represented by
+// fetched tasks even while the EventKit list snapshot is catching up.
+extension CalendarModel {
+    static func reminderCategories(selectedLists: [CalendarModel], taskLists: [CalendarModel]) -> [CalendarModel] {
+        var seen = Set<String>()
+        return (selectedLists + taskLists).filter { seen.insert($0.id).inserted }
+    }
+}

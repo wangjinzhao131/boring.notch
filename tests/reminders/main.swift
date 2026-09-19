@@ -1,4 +1,5 @@
 import Foundation
+import Cocoa
 
 // Regression coverage for the date filter. No personal reminders are read or saved.
 let start = Date(timeIntervalSince1970: 1_700_000_000)
@@ -18,3 +19,13 @@ for (name, dueDate, allReminders, expected) in cases {
     precondition(actual == expected, name)
 }
 print("Passed \(cases.count) reminder date-filter regression checks.")
+
+func list(_ id: String) -> CalendarModel {
+    CalendarModel(id: id, account: "test", title: id, color: .blue,
+                  isSubscribed: false, isReminder: true)
+}
+let work = list("work"), study = list("study"), empty = list("empty")
+precondition(CalendarModel.reminderCategories(selectedLists: [], taskLists: [work, study, work]).map(\.id) == ["work", "study"], "Loaded tasks must provide categories before list snapshot refresh")
+precondition(CalendarModel.reminderCategories(selectedLists: [empty, work], taskLists: [work, study]).map(\.id) == ["empty", "work", "study"], "Keep empty selected lists and deduplicate task categories")
+precondition(CalendarModel.reminderCategories(selectedLists: [], taskLists: []).isEmpty)
+print("Passed 3 reminder category regression checks.")

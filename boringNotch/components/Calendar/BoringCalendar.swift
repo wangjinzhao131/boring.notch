@@ -189,7 +189,12 @@ struct CalendarView: View {
     @AppStorage("remindersContentExpanded") private var remindersExpanded = true
 
     private var availableLists: [CalendarModel] {
-        calendarManager.reminderLists.filter { calendarManager.selectedCalendarIDs.contains($0.id) }
+        CalendarModel.reminderCategories(
+            selectedLists: calendarManager.reminderLists.filter {
+                calendarManager.selectedCalendarIDs.contains($0.id)
+            },
+            taskLists: calendarManager.events.filter { $0.type.isReminder }.map(\.calendar)
+        )
     }
 
     private var displayedEvents: [EventModel] {
@@ -209,6 +214,8 @@ struct CalendarView: View {
                     }
                 }
             }
+            .frame(maxWidth: .infinity)
+            .frame(height: 28)
             Button {
                 withAnimation(.easeInOut(duration: 0.2)) { remindersExpanded.toggle() }
             } label: {
@@ -314,12 +321,14 @@ struct CalendarView: View {
         }
         .onChange(of: vm.notchState) { _, _ in
             Task {
+                await calendarManager.reloadCalendarAndReminderLists()
                 await calendarManager.updateCurrentDate(Date.now)
                 selectedDate = Date.now
             }
         }
         .onAppear {
             Task {
+                await calendarManager.reloadCalendarAndReminderLists()
                 await calendarManager.updateCurrentDate(Date.now)
                 selectedDate = Date.now
             }
