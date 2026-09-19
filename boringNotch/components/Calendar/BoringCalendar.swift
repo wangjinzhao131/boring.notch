@@ -182,42 +182,61 @@ struct CalendarView: View {
     @EnvironmentObject var vm: BoringViewModel
     @ObservedObject private var calendarManager = CalendarManager.shared
     @State private var selectedDate = Date()
+    @Default(.allReminders) private var allReminders
+    @Default(.hideCompletedReminders) private var hideCompletedReminders
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(alignment: .top, spacing: 8) {
-                VStack(alignment: .leading) {
-                    Text(selectedDate.formatted(.dateTime.month(.abbreviated)))
-                        .font(.title3)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.white)
-                    Text(selectedDate.formatted(.dateTime.year()))
-                        .font(.title3)
-                        .fontWeight(.light)
-                        .foregroundColor(Color(white: 0.65))
+            if allReminders {
+                HStack {
+                    Label("Reminders", systemImage: "checklist")
+                        .font(.headline)
+                    Spacer()
+                    Text("\(EventListView.filteredEvents(events: calendarManager.events).count)")
+                        .foregroundStyle(.secondary)
                 }
+                .padding(.bottom, 4)
+            } else {
+                HStack(alignment: .top, spacing: 8) {
+                    VStack(alignment: .leading) {
+                        Text(selectedDate.formatted(.dateTime.month(.abbreviated)))
+                            .font(.title3)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                        Text(selectedDate.formatted(.dateTime.year()))
+                            .font(.title3)
+                            .fontWeight(.light)
+                            .foregroundColor(Color(white: 0.65))
+                    }
 
-                ZStack(alignment: .top) {
-                    WheelPicker(selectedDate: $selectedDate, config: Config())
-                    HStack(alignment: .top) {
-                        LinearGradient(
-                            colors: [Color.black, .clear], startPoint: .leading, endPoint: .trailing
-                        )
-                        .frame(width: 20)
-                        Spacer()
-                        LinearGradient(
-                            colors: [.clear, Color.black], startPoint: .leading, endPoint: .trailing
-                        )
-                        .frame(width: 20)
+                    ZStack(alignment: .top) {
+                        WheelPicker(selectedDate: $selectedDate, config: Config())
+                        HStack(alignment: .top) {
+                            LinearGradient(
+                                colors: [Color.black, .clear], startPoint: .leading, endPoint: .trailing
+                            )
+                            .frame(width: 20)
+                            Spacer()
+                            LinearGradient(
+                                colors: [.clear, Color.black], startPoint: .leading, endPoint: .trailing
+                            )
+                            .frame(width: 20)
+                        }
                     }
                 }
-            }
 
+            }
             let filteredEvents = EventListView.filteredEvents(
                 events: calendarManager.events
             )
             if filteredEvents.isEmpty {
-                EmptyEventsView(selectedDate: selectedDate)
+                if allReminders {
+                    Text("No reminders to show")
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 12)
+                } else {
+                    EmptyEventsView(selectedDate: selectedDate)
+                }
                 Spacer(minLength: 0)
             } else {
                 EventListView(events: calendarManager.events)
@@ -225,6 +244,9 @@ struct CalendarView: View {
         }
         .listRowBackground(Color.clear)
         .frame(height: 120)
+        .onChange(of: allReminders) {
+            Task { await calendarManager.updateCurrentDate(selectedDate) }
+        }
         .onChange(of: selectedDate) {
             Task {
                 await calendarManager.updateCurrentDate(selectedDate)
@@ -269,10 +291,13 @@ struct EventListView: View {
     let events: [EventModel]
     @Default(.autoScrollToNextEvent) private var autoScrollToNextEvent
     @Default(.showFullEventTitles) private var showFullEventTitles
+    @Default(.allReminders) private var allReminders
+    @Default(.hideCompletedReminders) private var hideCompletedReminders
 
 
     static func filteredEvents(events: [EventModel]) -> [EventModel] {
         events.filter { event in
+            if Defaults[.allReminders] && !event.type.isReminder { return false }
             if event.type.isReminder {
                 if case .reminder(let completed) = event.type {
                     return !completed || !Defaults[.hideCompletedReminders]
@@ -291,6 +316,7 @@ struct EventListView: View {
     }
 
     private func scrollToRelevantEvent(proxy: ScrollViewProxy) {
+        guard autoScrollToNextEvent && !allReminders else { return }
         let now = Date()
         // Determine a single target using preferred search order:
         // 1) first non-all-day upcoming/in-progress event
@@ -312,12 +338,14 @@ struct EventListView: View {
         ScrollViewReader { proxy in
             List {
                 ForEach(filteredEvents) { event in
-                    Button(action: {
-                        if let url = event.calendarAppURL() {
-                            openURL(url)
+                    Group {
+                        if event.type.isReminder {
+                            eventRow(event)
+                        } else {
+                            Button(action: { openEvent(event) }) {
+                                eventRow(event)
+                            }
                         }
-                    }) {
-                        eventRow(event)
                     }
                     .id(event.id)
                     .padding(.leading, -5)
@@ -339,6 +367,10 @@ struct EventListView: View {
             }
         }
         Spacer(minLength: 0)
+    }
+
+    private func openEvent(_ event: EventModel) {
+        if let url = event.calendarAppURL() { openURL(url) }
     }
 
     private func eventRow(_ event: EventModel) -> some View {
@@ -365,26 +397,47 @@ struct EventListView: View {
                         color: Color(event.calendar.color)
                     )
                     .opacity(1.0)  // Ensure the toggle is always fully opaque
-                    HStack {
-                        Text(event.title)
-                            .font(.callout)
-                            .foregroundColor(.white)
-                            .lineLimit(showFullEventTitles ? nil : 1)
-                        Spacer(minLength: 0)
-                        VStack(alignment: .trailing, spacing: 4) {
-                            if event.isAllDay {
-                                Text("All-day")
-                                    .font(.caption)
-                                    .fontWeight(.medium)
+                    Button(action: { openEvent(event) }) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(event.title)
+                                    .font(.callout)
                                     .foregroundColor(.white)
-                                    .lineLimit(1)
-                            } else {
-                                Text(event.start, style: .time)
-                                    .foregroundColor(.white)
-                                    .font(.caption)
+                                    .lineLimit(showFullEventTitles ? nil : 1)
+                                if allReminders {
+                                    Text(event.calendar.title)
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            Spacer(minLength: 0)
+                            VStack(alignment: .trailing, spacing: 4) {
+                                if event.reminderDueDate == nil {
+                                    Text("No date")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                } else if allReminders {
+                                    Text(event.start, format: .dateTime.month(.abbreviated).day())
+                                        .font(.caption)
+                                    if !event.isAllDay {
+                                        Text(event.start, style: .time)
+                                            .font(.caption2)
+                                    }
+                                } else if event.isAllDay {
+                                    Text("All-day")
+                                        .font(.caption)
+                                        .fontWeight(.medium)
+                                        .foregroundColor(.white)
+                                        .lineLimit(1)
+                                } else {
+                                    Text(event.start, style: .time)
+                                        .foregroundColor(.white)
+                                        .font(.caption)
+                                }
                             }
                         }
                     }
+                    .buttonStyle(.plain)
                     .opacity(
                         isCompleted
                             ? 0.4

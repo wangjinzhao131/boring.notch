@@ -1,6 +1,56 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "All reminders (no calendar)" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全部提醒事项（不显示日历）"
+          }
+        }
+      }
+    },
+    "Show calendar / reminders" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "显示日历 / 提醒事项"
+          }
+        }
+      }
+    },
+    "Show reminders from selected lists, including overdue and undated tasks." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "显示所选列表中的全部提醒事项，包括逾期和未设日期的任务。"
+          }
+        }
+      }
+    },
+    "No date" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无日期"
+          }
+        }
+      }
+    },
+    "No reminders to show" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂无提醒事项"
+          }
+        }
+      }
+    },
     "" : {
       "localizations" : {
         "ar" : {

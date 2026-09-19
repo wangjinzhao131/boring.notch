@@ -13,7 +13,7 @@ import Foundation
 protocol CalendarServiceProviding {
     func requestAccess(to type: EKEntityType) async throws -> Bool
     func calendars() async -> [CalendarModel]
-    func events(from start: Date, to end: Date, calendars: [String]) async -> [EventModel]
+    func events(from start: Date, to end: Date, calendars: [String], allReminders: Bool) async -> [EventModel]
 }
 
 class CalendarService: CalendarServiceProviding {
@@ -54,9 +54,9 @@ class CalendarService: CalendarServiceProviding {
         return calendars.map { CalendarModel(from: $0) }
     }
     
-    func events(from start: Date, to end: Date, calendars ids: [String]) async -> [EventModel] {
+    func events(from start: Date, to end: Date, calendars ids: [String], allReminders: Bool = false) async -> [EventModel] {
         let allCalendars = await self.calendars()
-        let filteredCalendars = allCalendars.filter { ids.isEmpty || ids.contains($0.id) }
+        let filteredCalendars = allCalendars.filter { ids.contains($0.id) }
         let ekCalendars = filteredCalendars.compactMap { calendarModel in
             store.calendars(for: .event).first { $0.calendarIdentifier == calendarModel.id } ??
             store.calendars(for: .reminder).first { $0.calendarIdentifier == calendarModel.id }
@@ -65,36 +65,39 @@ class CalendarService: CalendarServiceProviding {
         var events: [EventModel] = []
         
         // Fetch regular events
-        if hasAccess(to: .event) {
+        if !allReminders && hasAccess(to: .event) {
             let eventCalendars = ekCalendars.filter { store.calendars(for: .event).contains($0) }
-            let predicate = store.predicateForEvents(withStart: start, end: end, calendars: eventCalendars)
-            let ekEvents = store.events(matching: predicate)
-            events.append(contentsOf: ekEvents.compactMap { EventModel(from: $0) })
+            if !eventCalendars.isEmpty {
+                let predicate = store.predicateForEvents(withStart: start, end: end, calendars: eventCalendars)
+                let ekEvents = store.events(matching: predicate)
+                events.append(contentsOf: ekEvents.compactMap { EventModel(from: $0) })
+            }
         }
         
         // Fetch reminders
         if hasAccess(to: .reminder) {
             let reminderCalendars = ekCalendars.filter { store.calendars(for: .reminder).contains($0) }
-            events.append(contentsOf: await fetchReminders(from: start, to: end, calendars: reminderCalendars))
+            events.append(contentsOf: await fetchReminders(from: start, to: end, calendars: reminderCalendars, allReminders: allReminders))
         }
         
-        return events.sorted { $0.start < $1.start }
+        return events.sorted {
+            if $0.start != $1.start { return $0.start < $1.start }
+            let titleOrder = $0.title.localizedStandardCompare($1.title)
+            return titleOrder == .orderedSame ? $0.id < $1.id : titleOrder == .orderedAscending
+        }
     }
     
-    private func fetchReminders(from start: Date, to end: Date, calendars: [EKCalendar]) async -> [EventModel] {
+    private func fetchReminders(from start: Date, to end: Date, calendars: [EKCalendar], allReminders: Bool) async -> [EventModel] {
+        guard !calendars.isEmpty else { return [] }
         return await withCheckedContinuation { continuation in
-            // Create predicate for reminders with due dates in the specified range
+            // Fetch only selected lists; an empty EventKit calendar array can mean all lists.
             let predicate = store.predicateForReminders(in: calendars)
             
             store.fetchReminders(matching: predicate) { reminders in
                 
                 let filteredReminders = (reminders ?? []).filter { reminder in
-                    // Check if reminder has a due date within our range
-                    guard let dueDate = reminder.dueDateComponents?.date else {
-                        return false
-                    }
-                    
-                    return dueDate >= start && dueDate <= end
+                    let dueDate = reminder.dueDateComponents.flatMap { Calendar.current.date(from: $0) }
+                    return Self.includesReminder(dueDate: dueDate, from: start, to: end, allReminders: allReminders)
                 }
                 
                 // Convert to EventModel
@@ -107,6 +110,12 @@ class CalendarService: CalendarServiceProviding {
         }
     }
     
+    static func includesReminder(dueDate: Date?, from start: Date, to end: Date, allReminders: Bool) -> Bool {
+        if allReminders { return true }
+        guard let dueDate else { return false }
+        return dueDate >= start && dueDate < end
+    }
+
     func setReminderCompleted(reminderID: String, completed: Bool) async {
         guard let reminder = store.calendarItem(withIdentifier: reminderID) as? EKReminder else { return }
         reminder.isCompleted = completed
@@ -156,26 +165,28 @@ extension EventModel {
     }
     
     init?(from reminder: EKReminder) {
-        guard let calendar = reminder.calendar,
-              let dueDateComponents = reminder.dueDateComponents,
-              let date = Calendar.current.date(from: dueDateComponents)
-        else { return nil }
+        guard let calendar = reminder.calendar else { return nil }
+        let dueDateComponents = reminder.dueDateComponents
+        let dueDate = dueDateComponents.flatMap { Calendar.current.date(from: $0) }
+        // Keep undated reminders after dated ones without inventing a displayed due date.
+        let date = dueDate ?? .distantFuture
         
         self.init(
             id: reminder.calendarItemIdentifier,
             start: date,
-            end: Calendar.current.endOfDay(for: date),
+            end: dueDate.map { Calendar.current.endOfDay(for: $0) } ?? .distantFuture,
             title: reminder.title ?? "",
             location: reminder.location,
             notes: reminder.notes,
             url: reminder.url,
-            isAllDay: dueDateComponents.hour == nil,
+            isAllDay: dueDateComponents?.hour == nil,
             type: .reminder(completed: reminder.isCompleted),
             calendar: .init(from: calendar),
             participants: [],
             timeZone: calendar.isSubscribed || calendar.isDelegate ? nil : reminder.timeZone,
             hasRecurrenceRules: reminder.hasRecurrenceRules,
-            priority: .init(from: reminder.priority)
+            priority: .init(from: reminder.priority),
+            reminderDueDate: dueDate
         )
     }
 }

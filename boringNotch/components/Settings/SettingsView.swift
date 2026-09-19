@@ -717,8 +717,14 @@ struct CalendarSettings: View {
     var body: some View {
         Form {
             Defaults.Toggle(key: .showCalendar) {
-                Text("Show calendar")
+                Text("Show calendar / reminders")
             }
+            Defaults.Toggle(key: .allReminders) {
+                Text("All reminders (no calendar)")
+            }
+            Text("Show reminders from selected lists, including overdue and undated tasks.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
             Defaults.Toggle(key: .hideCompletedReminders) {
                 Text("Hide completed reminders")
             }
