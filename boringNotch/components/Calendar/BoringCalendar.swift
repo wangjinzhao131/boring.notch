@@ -309,7 +309,7 @@ struct CalendarView: View {
             }
         }
         .listRowBackground(Color.clear)
-        .frame(height: allReminders ? (remindersExpanded ? 300 : 30) : 120, alignment: .top)
+        .frame(height: allReminders ? (remindersExpanded ? 120 : 30) : 120, alignment: .top)
         .onChange(of: remindersExpanded) {
             if vm.notchState == .open { vm.notchSize = openNotchSize }
         }
@@ -412,6 +412,19 @@ struct EventListView: View {
 
     var body: some View {
         ScrollViewReader { proxy in
+            if allReminders {
+                ScrollView(.vertical) {
+                    LazyVStack(spacing: 0) {
+                        ForEach(filteredEvents) { event in
+                            eventRow(event)
+                                .frame(minHeight: 24)
+                                .id(event.id)
+                            Divider().overlay(Color.white.opacity(0.06))
+                        }
+                    }
+                }
+                .scrollIndicators(.automatic)
+            } else {
             List {
                 ForEach(filteredEvents) { event in
                     Group {
@@ -440,6 +453,7 @@ struct EventListView: View {
             }
             .onChange(of: filteredEvents) { _, _ in
                 scrollToRelevantEvent(proxy: proxy)
+            }
             }
         }
         Spacer(minLength: 0)
@@ -479,26 +493,20 @@ struct EventListView: View {
                                 Text(event.title)
                                     .font(.callout)
                                     .foregroundColor(.white)
-                                    .lineLimit(showFullEventTitles ? nil : 1)
-                                if allReminders {
-                                    Text(event.calendar.title)
-                                        .font(.caption2)
-                                        .foregroundStyle(.secondary)
-                                }
+                                    .lineLimit(allReminders ? 1 : (showFullEventTitles ? nil : 1))
+                                    .help(event.title + " · " + event.calendar.title)
                             }
                             Spacer(minLength: 0)
                             VStack(alignment: .trailing, spacing: 4) {
                                 if event.reminderDueDate == nil {
+                                    if !allReminders {
                                     Text("No date")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
+                                    }
                                 } else if allReminders {
                                     Text(event.start, format: .dateTime.month(.abbreviated).day())
                                         .font(.caption)
-                                    if !event.isAllDay {
-                                        Text(event.start, style: .time)
-                                            .font(.caption2)
-                                    }
                                 } else if event.isAllDay {
                                     Text("All-day")
                                         .font(.caption)
@@ -521,7 +529,7 @@ struct EventListView: View {
                                 ? 0.6 : 1.0
                     )
                 }
-                .padding(.vertical, 4)
+                .padding(.vertical, allReminders ? 1 : 4)
             )
         } else {
             return AnyView(

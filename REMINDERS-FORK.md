@@ -59,3 +59,12 @@ lists after this change. Selecting a category now expands its content; the
 collapse button has an explicit text label. Expanded reminder content is 300
 points tall instead of 120, with a 370-point outer panel. Collapsing returns the
 outer panel to 190 points. The host window accommodates either size.
+
+### Compact layout (supersedes expanded capacity above)
+
+Restored the original 190-point outer panel and 120-point reminder area.
+Reminder-only mode uses a scrolling stack with compact 24-point minimum rows,
+single-line titles and a full-title/list tooltip. Redundant list subtitles and
+undated labels are omitted; due dates remain visible. Category switching still
+expands content, and the explicit collapse control remains. macOS build and
+signature verification passed; exact on-screen capacity has not been verified.

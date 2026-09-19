@@ -13,12 +13,8 @@ let downloadSneakSize: CGSize = .init(width: 65, height: 1)
 let batterySneakSize: CGSize = .init(width: 160, height: 1)
 
 let shadowPadding: CGFloat = 20
-var openNotchSize: CGSize {
-    let expanded = UserDefaults.standard.object(forKey: "remindersContentExpanded") as? Bool ?? true
-    let showTallReminders = Defaults[.showCalendar] && Defaults[.allReminders] && expanded
-    return .init(width: 640, height: showTallReminders ? 370 : 190)
-}
-let windowSize: CGSize = .init(width: openNotchSize.width, height: 370 + shadowPadding)
+let openNotchSize: CGSize = .init(width: 640, height: 190)
+let windowSize: CGSize = .init(width: openNotchSize.width, height: openNotchSize.height + shadowPadding)
 let cornerRadiusInsets: (opened: (top: CGFloat, bottom: CGFloat), closed: (top: CGFloat, bottom: CGFloat)) = (opened: (top: 19, bottom: 24), closed: (top: 6, bottom: 14))
 
 enum MusicPlayerImageSizes {
