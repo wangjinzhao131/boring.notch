@@ -185,17 +185,71 @@ struct CalendarView: View {
     @Default(.allReminders) private var allReminders
     @Default(.hideCompletedReminders) private var hideCompletedReminders
 
+    @AppStorage("remindersSelectedList") private var selectedReminderList = ""
+    @AppStorage("remindersContentExpanded") private var remindersExpanded = true
+
+    private var availableLists: [CalendarModel] {
+        calendarManager.reminderLists.filter { calendarManager.selectedCalendarIDs.contains($0.id) }
+    }
+
+    private var displayedEvents: [EventModel] {
+        guard allReminders else { return calendarManager.events }
+        return calendarManager.events.filter {
+            selectedReminderList.isEmpty || $0.calendar.id == selectedReminderList
+        }
+    }
+
+    private var reminderHeader: some View {
+        HStack(spacing: 4) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 5) {
+                    categoryButton(title: "全部", id: "", color: .white)
+                    ForEach(availableLists, id: \.id) { list in
+                        categoryButton(title: list.title, id: list.id, color: Color(list.color))
+                    }
+                }
+            }
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { remindersExpanded.toggle() }
+            } label: {
+                Image(systemName: remindersExpanded ? "chevron.up" : "chevron.down")
+                    .font(.system(size: 11, weight: .semibold))
+                    .frame(width: 24, height: 26)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(remindersExpanded ? "折叠提醒事项" : "展开提醒事项")
+            .accessibilityLabel(remindersExpanded ? "折叠提醒事项" : "展开提醒事项")
+        }
+        .padding(.bottom, remindersExpanded ? 4 : 0)
+    }
+
+    private func categoryButton(title: String, id: String, color: Color) -> some View {
+        let selected = selectedReminderList == id
+        let count = EventListView.filteredEvents(events: calendarManager.events).filter {
+            id.isEmpty || $0.calendar.id == id
+        }.count
+        return Button { selectedReminderList = id } label: {
+            HStack(spacing: 4) {
+                Text(title).fontWeight(selected ? .semibold : .regular)
+                Text("\(count)").foregroundStyle(.secondary)
+            }
+            .font(.caption)
+            .lineLimit(1)
+            .fixedSize()
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(selected ? color.opacity(0.25) : Color.white.opacity(0.06), in: Capsule())
+            .foregroundStyle(selected ? color : .white.opacity(0.7))
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             if allReminders {
-                HStack {
-                    Label("Reminders", systemImage: "checklist")
-                        .font(.headline)
-                    Spacer()
-                    Text("\(EventListView.filteredEvents(events: calendarManager.events).count)")
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.bottom, 4)
+                reminderHeader
             } else {
                 HStack(alignment: .top, spacing: 8) {
                     VStack(alignment: .leading) {
@@ -226,24 +280,30 @@ struct CalendarView: View {
                 }
 
             }
-            let filteredEvents = EventListView.filteredEvents(
-                events: calendarManager.events
-            )
-            if filteredEvents.isEmpty {
-                if allReminders {
-                    Text("No reminders to show")
-                        .foregroundStyle(.secondary)
-                        .padding(.top, 12)
+            if !allReminders || remindersExpanded {
+                let filteredEvents = EventListView.filteredEvents(events: displayedEvents)
+                if filteredEvents.isEmpty {
+                    if allReminders {
+                        Text("No reminders to show")
+                            .foregroundStyle(.secondary)
+                            .padding(.top, 12)
+                    } else {
+                        EmptyEventsView(selectedDate: selectedDate)
+                    }
+                    Spacer(minLength: 0)
                 } else {
-                    EmptyEventsView(selectedDate: selectedDate)
+                    EventListView(events: displayedEvents)
+                        .id(allReminders ? selectedReminderList : "calendar")
                 }
-                Spacer(minLength: 0)
-            } else {
-                EventListView(events: calendarManager.events)
             }
         }
         .listRowBackground(Color.clear)
-        .frame(height: 120)
+        .frame(height: allReminders && !remindersExpanded ? 30 : 120, alignment: .top)
+        .onChange(of: availableLists) {
+            if !availableLists.contains(where: { $0.id == selectedReminderList }) {
+                selectedReminderList = ""
+            }
+        }
         .onChange(of: allReminders) {
             Task { await calendarManager.updateCurrentDate(selectedDate) }
         }

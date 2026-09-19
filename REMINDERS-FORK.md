@@ -29,3 +29,16 @@ xcodebuild -project boringNotch.xcodeproj -scheme boringNotch \
 Manual check: open the notch with an undated, overdue and future task in selected
 lists; all should appear. Toggle completion on a disposable test task, and check
 that it changes in Apple Reminders. Deselect all lists and verify an empty panel.
+
+## Category bar and collapse control
+
+The reminder panel has a horizontally scrolling category bar with All and each
+selected reminder list, including visible task counts. Selecting a category
+filters the task list below. The chevron collapses or expands task content while
+keeping categories available. The selected category and expansion state persist.
+Calendar mode retains its existing date selector.
+
+Validation: macOS Debug build, ad-hoc signature verification, and the eight
+existing reminder date-filter regression checks pass. The updated app has been
+installed locally. Floating-window capture currently exposes only the closed
+notch, so live category switching and collapse interactions remain unverified.
