@@ -89,3 +89,13 @@ Packages use ad-hoc signing, not Apple notarization. Keep using this fork's buil
 installing an official in-app update can replace the custom features. GitHub can
 disable scheduled workflows in inactive public repositories after 60 days;
 re-enable in Actions or run manually if that happens.
+
+## Live refresh fix
+
+The visible calendar/reminders panel re-fetches lists and tasks every five seconds,
+in addition to EventKit change notifications. Opening the panel starts a fresh
+read; closing it or removing the view cancels its refresh task. Asynchronous reads
+use generation checks so older responses cannot replace newer results. Original
+panel dimensions and category selection are unchanged. The macOS build and 11
+existing reminder checks pass; external edits in the user's live reminder database
+have not been exercised by an automated test.

@@ -326,18 +326,20 @@ struct CalendarView: View {
                 await calendarManager.updateCurrentDate(selectedDate)
             }
         }
-        .onChange(of: vm.notchState) { _, _ in
-            Task {
+        .task(id: vm.notchState) {
+            guard vm.notchState == .open else { return }
+            selectedDate = Date.now
+            await calendarManager.updateCurrentDate(selectedDate)
+            // EventKit notifications remain the immediate refresh path. Re-fetch
+            // while visible as well, so a missed/delayed notification cannot leave
+            // the panel stale. SwiftUI cancels this loop on close or disappearance.
+            while !Task.isCancelled {
                 await calendarManager.reloadCalendarAndReminderLists()
-                await calendarManager.updateCurrentDate(Date.now)
-                selectedDate = Date.now
-            }
-        }
-        .onAppear {
-            Task {
-                await calendarManager.reloadCalendarAndReminderLists()
-                await calendarManager.updateCurrentDate(Date.now)
-                selectedDate = Date.now
+                do {
+                    try await Task.sleep(for: .seconds(5))
+                } catch {
+                    return
+                }
             }
         }
     }

@@ -27,6 +27,8 @@ class CalendarManager: ObservableObject {
     private let calendarService = CalendarService()
 
     private var eventStoreChangedObserver: NSObjectProtocol?
+    private var listRefreshGeneration = 0
+    private var eventRefreshGeneration = 0
 
     private init() {
         self.currentWeekStartDate = CalendarManager.startOfDay(Date())
@@ -56,7 +58,10 @@ class CalendarManager: ObservableObject {
 
     @MainActor
     func reloadCalendarAndReminderLists() async {
+        listRefreshGeneration += 1
+        let generation = listRefreshGeneration
         let all = await calendarService.calendars()
+        guard generation == listRefreshGeneration, !Task.isCancelled else { return }
         self.eventCalendars = all.filter { !$0.isReminder }
         self.reminderLists = all.filter { $0.isReminder }
         self.allCalendars = all // for legacy compatibility, can be removed if not needed
@@ -176,6 +181,8 @@ class CalendarManager: ObservableObject {
     }
 
     private func updateEvents() async {
+        eventRefreshGeneration += 1
+        let generation = eventRefreshGeneration
         let calendarIDs = selectedCalendars.map { $0.id }
         let eventsResult = await calendarService.events(
             from: currentWeekStartDate,
@@ -183,6 +190,7 @@ class CalendarManager: ObservableObject {
             calendars: calendarIDs,
             allReminders: Defaults[.allReminders]
         )
+        guard generation == eventRefreshGeneration, !Task.isCancelled else { return }
         self.events = eventsResult
     }
     
